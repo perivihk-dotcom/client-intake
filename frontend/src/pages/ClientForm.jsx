@@ -7,11 +7,22 @@ import { CheckCircle } from "lucide-react";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+const Logo = () => (
+  <div className="logo-container">
+    <img src="/logo.png" alt="Nexovent Labs" className="logo-image" />
+    <span className="logo-text">
+      <span className="orange">Nexovent</span>
+      <span className="black"> Labs</span>
+    </span>
+  </div>
+);
+
 const ClientForm = () => {
   const [formData, setFormData] = useState({
     name: "",
     business_name: "",
     mobile_number: "",
+    email: "",
     agreed_to_terms: false,
   });
   const [errors, setErrors] = useState({});
@@ -26,6 +37,11 @@ const ClientForm = () => {
       newErrors.mobile_number = "Mobile number is required";
     } else if (!/^[\d\s\-\+\(\)]{7,20}$/.test(formData.mobile_number)) {
       newErrors.mobile_number = "Please enter a valid mobile number";
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
     }
     if (!formData.agreed_to_terms) newErrors.agreed_to_terms = "You must agree to the terms";
     return newErrors;
@@ -65,8 +81,9 @@ const ClientForm = () => {
     return (
       <div className="success-container">
         <div className="success-card" data-testid="success-message">
+          <Logo />
           <div className="success-icon">
-            <CheckCircle size={40} color="white" />
+            <CheckCircle size={44} color="white" />
           </div>
           <h1>Thank You!</h1>
           <p>
@@ -74,10 +91,17 @@ const ClientForm = () => {
             We will contact you within <span className="highlight">7 to 8 hours</span>.
           </p>
           <button 
+            className="submit-btn" 
+            onClick={() => window.open("https://nexovent-labs.vercel.app/", "_blank")}
+            style={{ marginTop: "16px" }}
+          >
+            Visit Our Website
+          </button>
+          <button 
             className="back-btn" 
             onClick={() => {
               setIsSubmitted(false);
-              setFormData({ name: "", business_name: "", mobile_number: "", agreed_to_terms: false });
+              setFormData({ name: "", business_name: "", mobile_number: "", email: "", agreed_to_terms: false });
             }}
             data-testid="submit-another-btn"
           >
@@ -91,6 +115,7 @@ const ClientForm = () => {
   return (
     <div className="form-container">
       <div className="form-card">
+        <Logo />
         <div className="form-header">
           <h1>Client Intake Form</h1>
           <p>Please fill in your details below</p>
@@ -134,6 +159,19 @@ const ClientForm = () => {
               data-testid="mobile-input"
             />
             {errors.mobile_number && <p className="error-text">{errors.mobile_number}</p>}
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="email">Email Address *</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="Enter your email address"
+              value={formData.email}
+              onChange={(e) => handleChange("email", e.target.value)}
+              data-testid="email-input"
+            />
+            {errors.email && <p className="error-text">{errors.email}</p>}
           </div>
 
           <div className="terms-container">
