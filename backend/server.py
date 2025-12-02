@@ -228,6 +228,37 @@ async def delete_submission(submission_id: str):
         raise HTTPException(status_code=404, detail="Submission not found")
     return {"success": True, "message": "Submission deleted"}
 
+# Root endpoint
+@app.get("/")
+async def root():
+    return {
+        "status": "healthy",
+        "service": "Nexovent Labs Client Intake API",
+        "version": "1.0.0",
+        "endpoints": {
+            "api_root": "/api",
+            "submissions": "/api/submissions",
+            "admin_verify": "/api/admin/verify",
+            "health": "/health"
+        }
+    }
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    try:
+        # Test MongoDB connection
+        await client.admin.command('ping')
+        db_status = "connected"
+    except Exception:
+        db_status = "disconnected"
+    
+    return {
+        "status": "healthy",
+        "database": db_status,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
