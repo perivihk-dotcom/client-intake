@@ -27,6 +27,7 @@ const ClientForm = () => {
   });
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSendingGif, setShowSendingGif] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const validate = () => {
@@ -60,12 +61,17 @@ const ClientForm = () => {
 
     try {
       await axios.post(`${API}/submissions`, formData);
-      setIsSubmitted(true);
-      toast.success("Form submitted successfully!");
+      setIsSubmitting(false);
+      setShowSendingGif(true);
+      
+      // Show gif for 3 seconds then show success message
+      setTimeout(() => {
+        setShowSendingGif(false);
+        setIsSubmitted(true);
+      }, 3000);
     } catch (error) {
       console.error("Submission error:", error);
       toast.error(error.response?.data?.detail || "Failed to submit form. Please try again.");
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -76,6 +82,29 @@ const ClientForm = () => {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
   };
+
+  if (showSendingGif) {
+    return (
+      <div className="success-container">
+        <div className="success-card" style={{ padding: "60px 48px" }}>
+          <Logo />
+          <img 
+            src="/send.gif" 
+            alt="Sending..." 
+            style={{ 
+              width: "150px", 
+              height: "150px", 
+              margin: "20px auto",
+              display: "block"
+            }} 
+          />
+          <p style={{ color: "#71717a", fontSize: "16px", marginTop: "16px" }}>
+            Sending your information...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isSubmitted) {
     return (
