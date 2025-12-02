@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,7 +6,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 
@@ -25,46 +25,74 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Admin password (simple protection)
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
 # Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
+class ClientSubmission(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
+    name: str
+    business_name: str
+    mobile_number: str
+    agreed_to_terms: bool
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class ClientSubmissionCreate(BaseModel):
+    name: str
+    business_name: str
+    mobile_number: str
+    agreed_to_terms: bool
 
-# Add your routes to the router instead of directly to app
+class AdminLogin(BaseModel):
+    password: str
+
+# Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Client Intake API"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
+@api_router.post("/submissions", response_model=ClientSubmission)
+async def create_submission(input: ClientSubmissionCreate):
+    if not input.agreed_to_terms:
+        raise HTTPException(status_code=400, detail="You must agree to the terms and conditions")
+    
+    submission_dict = input.model_dump()
+    submission_obj = ClientSubmission(**submission_dict)
     
     # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
+    doc = submission_obj.model_dump()
     doc['timestamp'] = doc['timestamp'].isoformat()
     
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
+    await db.submissions.insert_one(doc)
+    return submission_obj
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
+@api_router.get("/submissions", response_model=List[ClientSubmission])
+async def get_submissions():
+    submissions = await db.submissions.find({}, {"_id": 0}).to_list(1000)
     
     # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
+    for submission in submissions:
+        if isinstance(submission['timestamp'], str):
+            submission['timestamp'] = datetime.fromisoformat(submission['timestamp'])
     
-    return status_checks
+    # Sort by timestamp descending (newest first)
+    submissions.sort(key=lambda x: x['timestamp'], reverse=True)
+    return submissions
+
+@api_router.post("/admin/verify")
+async def verify_admin(login: AdminLogin):
+    if login.password == ADMIN_PASSWORD:
+        return {"success": True, "message": "Access granted"}
+    raise HTTPException(status_code=401, detail="Invalid password")
+
+@api_router.delete("/submissions/{submission_id}")
+async def delete_submission(submission_id: str):
+    result = await db.submissions.delete_one({"id": submission_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    return {"success": True, "message": "Submission deleted"}
 
 # Include the router in the main app
 app.include_router(api_router)
